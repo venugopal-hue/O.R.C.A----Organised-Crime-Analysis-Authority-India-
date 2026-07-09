@@ -6,6 +6,9 @@ import { IntelligenceProvider } from "@/context/IntelligenceContext";
 export const metadata: Metadata = {
   title: "O.R.C.A — Organized Crime Analysis Authority",
   description: "Secure operational command center and intelligence auditing workspace for Karnataka State Crime Intelligence Portal.",
+  icons: {
+    icon: "/logo.png",
+  }
 };
 
 export default function RootLayout({

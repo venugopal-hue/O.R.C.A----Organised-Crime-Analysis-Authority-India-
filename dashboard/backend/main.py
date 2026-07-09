@@ -1,6 +1,6 @@
 import os
 import time
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -37,6 +37,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount local data directory for static downloads fallback
+from fastapi.staticfiles import StaticFiles
+app.mount("/api/v1/data", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "data")), name="data")
+
 class QueryPayload(BaseModel):
     query: str
     clearanceLevel: str = "ISD-LEVEL-IV"
@@ -55,8 +59,34 @@ def health_check():
         }
     }
 
+# Security JWT token verification dependency
+async def verify_firebase_token(authorization: Optional[str] = Header(None)):
+    import firebase_admin
+    from firebase_admin import auth
+
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header is required."
+        )
+
+    try:
+        scheme, token = authorization.split(" ")
+        if scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=401,
+                detail="Authorization scheme must be Bearer."
+            )
+        decoded_token = auth.verify_id_token(token)
+        return decoded_token
+    except Exception as err:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid or expired Authorization token: {str(err)}"
+        )
+
 @app.post("/api/v1/fir/upload")
-async def upload_and_process_fir(file: UploadFile = File(...)):
+async def upload_and_process_fir(file: UploadFile = File(...), token: dict = Depends(verify_firebase_token)):
     """
     Main ingestion endpoint: Receives PDF/Image, runs Tesseract/PyMuPDF OCR, 
     extracts named entities via spaCy, queries Groq API for BNS legal mapping, 
@@ -133,7 +163,7 @@ async def upload_and_process_fir(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Forensic extraction pipeline failure: {str(e)}")
 
 @app.post("/api/v1/intelligence/query")
-async def dispatch_intelligence_inquiry(payload: QueryPayload):
+async def dispatch_intelligence_inquiry(payload: QueryPayload, token: dict = Depends(verify_firebase_token)):
     """
     Stitches standard or custom Copilot query preset searches through Groq API Gateway
     """
@@ -166,7 +196,7 @@ class CorrelationAnalyzePayload(BaseModel):
     caseData: dict
 
 @app.post("/api/v1/correlation/analyze")
-async def analyze_case_correlations(payload: CorrelationAnalyzePayload):
+async def analyze_case_correlations(payload: CorrelationAnalyzePayload, token: dict = Depends(verify_firebase_token)):
     """
     Receives an ingested case and runs real-time entity correlation scoring.
     """
@@ -177,7 +207,7 @@ async def analyze_case_correlations(payload: CorrelationAnalyzePayload):
         raise HTTPException(status_code=500, detail=f"Correlation engine analysis failure: {str(e)}")
 
 @app.get("/api/v1/correlation/network")
-async def get_network_graph():
+async def get_network_graph(token: dict = Depends(verify_firebase_token)):
     """
     Exposes the full NetworkX/Neo4j relationship graph representation.
     """
@@ -191,7 +221,7 @@ async def get_network_graph():
         raise HTTPException(status_code=500, detail=f"Graph data pull failure: {str(e)}")
 
 @app.get("/api/v1/correlation/alerts")
-async def get_cross_fir_alerts():
+async def get_cross_fir_alerts(token: dict = Depends(verify_firebase_token)):
     """
     Exposes all cross-FIR alerts and warnings.
     """
@@ -205,7 +235,7 @@ async def get_cross_fir_alerts():
         raise HTTPException(status_code=500, detail=f"Alerts retrieval failure: {str(e)}")
 
 @app.get("/api/v1/correlation/clusters")
-async def get_criminal_clusters():
+async def get_criminal_clusters(token: dict = Depends(verify_firebase_token)):
     """
     Exposes detected organized crime rings / clusters.
     """
@@ -219,7 +249,7 @@ async def get_criminal_clusters():
         raise HTTPException(status_code=500, detail=f"Cluster generation failure: {str(e)}")
 
 @app.get("/api/v1/correlation/districts")
-async def get_district_threats():
+async def get_district_threats(token: dict = Depends(verify_firebase_token)):
     """
     Exposes threat indices and crime vectors across Karnataka.
     """

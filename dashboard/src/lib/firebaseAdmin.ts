@@ -6,6 +6,10 @@ function initAdmin() {
   if (getApps().length > 0) {
     return getApp();
   }
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    console.error("[Firebase Admin Error]: NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable is missing.");
+  }
   let serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (serviceAccountJson) {
     serviceAccountJson = serviceAccountJson.trim();
@@ -18,14 +22,14 @@ function initAdmin() {
       console.log("[Firebase Admin] Service Account initialized successfully for:", serviceAccount.client_email);
       return initializeApp({
         credential: cert(serviceAccount),
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "orca-ai-india",
+        projectId: projectId,
       });
     } catch (e: any) {
       console.error("[Firebase Admin Key Parse Error]:", e.message);
     }
   }
   return initializeApp({
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "orca-ai-india",
+    projectId: projectId,
   });
 }
 
@@ -38,36 +42,11 @@ export async function checkAdminAuth(req: any, requiredPermission?: string) {
     const cookieHeader = req.headers.get("cookie") || "";
     const tokenMatch = cookieHeader.match(/authToken=([^;]+)/);
     if (!tokenMatch) {
-      const host = req.headers.get("host") || "";
-      if (host.includes("localhost") || host.includes("127.0.0.1")) {
-        return {
-          uid: "dev-mock-admin-uid",
-          email: "dsp_rks_ips_2026@orca.gov",
-          name: "DSP R. K. Shastry, IPS",
-          role: "ADMIN",
-          active: true
-        };
-      }
       return null;
     }
     const token = tokenMatch[1];
     
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (tokenErr) {
-      const host = req.headers.get("host") || "";
-      if (host.includes("localhost") || host.includes("127.0.0.1")) {
-        return {
-          uid: "dev-mock-admin-uid",
-          email: "dsp_rks_ips_2026@orca.gov",
-          name: "DSP R. K. Shastry, IPS",
-          role: "ADMIN",
-          active: true
-        };
-      }
-      throw tokenErr;
-    }
+    const decodedToken = await adminAuth.verifyIdToken(token);
     const uid = decodedToken.uid;
     
     const officerSnap = await adminDb.collection("officers").doc(uid).get();

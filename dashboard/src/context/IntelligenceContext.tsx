@@ -13,6 +13,7 @@ import {
   TelemetryLogEntry
 } from "@/lib/mock";
 import { useAuth } from "./AuthContext";
+import { auth } from "@/lib/firebase";
 import { 
   AttachmentFile, 
   ChatMessage, 
@@ -305,8 +306,14 @@ export const IntelligenceProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const refreshCorrelationData = async () => {
     try {
+      const token = await auth.currentUser?.getIdToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       // 1. Fetch clusters
-      const clustersRes = await fetch("http://localhost:8000/api/v1/correlation/clusters");
+      const clustersRes = await fetch("http://localhost:8000/api/v1/correlation/clusters", { headers });
       if (clustersRes.ok) {
         const clustersData = await clustersRes.json();
         if (clustersData.success && clustersData.clusters) {
@@ -315,7 +322,7 @@ export const IntelligenceProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       // 2. Fetch alerts
-      const alertsRes = await fetch("http://localhost:8000/api/v1/correlation/alerts");
+      const alertsRes = await fetch("http://localhost:8000/api/v1/correlation/alerts", { headers });
       if (alertsRes.ok) {
         const alertsData = await alertsRes.json();
         if (alertsData.success && alertsData.alerts) {
@@ -324,7 +331,7 @@ export const IntelligenceProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       // 3. Fetch network graph
-      const networkRes = await fetch("http://localhost:8000/api/v1/correlation/network");
+      const networkRes = await fetch("http://localhost:8000/api/v1/correlation/network", { headers });
       if (networkRes.ok) {
         const networkData = await networkRes.json();
         if (networkData.success && networkData.graph) {
@@ -422,12 +429,18 @@ export const IntelligenceProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const queryText = customText || "CONSOLE_AUDIT_LOG";
 
     try {
+      const token = await auth.currentUser?.getIdToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       // Direct REST query to the FastAPI backend
       const response = await fetch("http://localhost:8000/api/v1/intelligence/query", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify({
           query: queryText,
           clearanceLevel: "ISD-LEVEL-IV",
@@ -554,8 +567,15 @@ export const IntelligenceProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setUploadingState("timeline");
         await appendLog("Synthesizing NVIDIA NIM LLM Intelligence report timeline...", 300);
 
+        const token = await auth.currentUser?.getIdToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         const response = await fetch("http://localhost:8000/api/v1/fir/upload", {
           method: "POST",
+          headers,
           body: formData,
         });
 
