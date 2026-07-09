@@ -345,8 +345,13 @@ sequenceDiagram
 ## 🖼️ Screenshots
 
 <p align="center">
-  <strong>1. Command Overview Dashboard</strong><br />
-  <img src="dashboard/public/harsad_portrait.png" alt="Command Overview Placeholder" width="600" />
+  <strong>1. O.R.C.A Official Landing Page Portal</strong><br />
+  <img src="dashboard/public/original_dashboard.webp" alt="O.R.C.A Landing Page Portal" width="700" />
+</p>
+
+<p align="center">
+  <strong>2. Interactive Command Overview Dashboard</strong><br />
+  <img src="dashboard/public/nextjs_dashboard.webp" alt="Command Overview Dashboard" width="700" />
 </p>
 
 ---
