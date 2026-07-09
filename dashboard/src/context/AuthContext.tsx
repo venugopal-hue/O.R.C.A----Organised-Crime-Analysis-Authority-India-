@@ -109,52 +109,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await syncCookie(currentUser);
 
       if (currentUser) {
-        // Fetch matching Officer Profile from Firestore
         const docRef = doc(db, "officers", currentUser.uid);
-        try {
-        const docSnap = await getDocWithTimeout(docRef);
-        if (docSnap.exists()) {
-          const profile = docSnap.data() as OfficerProfile;
-          setOfficerProfile(profile);
-        } else {
-          // Standard fallback profile constructed strictly for verified Firebase authenticated user
-          const isDefaultAdmin = currentUser.email === "dsp_rks_ips_2026@orca.gov" || currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" || currentUser.email?.includes("admin") || currentUser.email?.startsWith("dsp_rks_ips_2026");
-          const fallbackProfile: OfficerProfile = {
-            uid: currentUser.uid,
-            email: currentUser.email || "",
-            name: isDefaultAdmin ? "DSP R. K. Shastry, IPS" : (currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer"),
-            rank: isDefaultAdmin ? "Superintendent of Police" : "Investigating Officer",
-            role: isDefaultAdmin ? "ADMIN" : "CYBER_CELL",
-            district: "Bengaluru Urban",
-            clearanceLevel: isDefaultAdmin ? "ISD-LEVEL-I" : "None",
-            lastLogin: new Date().toISOString(),
-            active: isDefaultAdmin ? true : false
-          };
-          setOfficerProfile(fallbackProfile);
-        }
-      } catch (error) {
-        const isDefaultAdmin = currentUser.email === "dsp_rks_ips_2026@orca.gov" || currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" || currentUser.email?.includes("admin") || currentUser.email?.startsWith("dsp_rks_ips_2026");
-        const fallbackProfile: OfficerProfile = {
-          uid: currentUser.uid,
-          email: currentUser.email || "",
-          name: isDefaultAdmin ? "DSP R. K. Shastry, IPS" : (currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer"),
-          rank: isDefaultAdmin ? "Superintendent of Police" : "Investigating Officer",
-          role: isDefaultAdmin ? "ADMIN" : "CYBER_CELL",
-          district: "Bengaluru Urban",
-          clearanceLevel: isDefaultAdmin ? "ISD-LEVEL-I" : "None",
-          lastLogin: new Date().toISOString(),
-          active: isDefaultAdmin ? true : false
-        };
-        setOfficerProfile(fallbackProfile);
-      }
-    } else {
-      setOfficerProfile(null);
-    }
-    setLoading(false);
-  });
 
-  return () => unsubscribe();
-}, []);
+        const attemptFetch = async (attempt: number): Promise<void> => {
+          try {
+            // Direct Firestore fetch — no artificial timeout
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              const profile = docSnap.data() as OfficerProfile;
+              setOfficerProfile(profile);
+            } else {
+              // No Firestore doc exists for this UID — use safe minimal fallback
+              // Only the legacy hardcoded admin email gets elevated access
+              const isLegacyAdmin =
+                currentUser.email === "dsp_rks_ips_2026@orca.gov" ||
+                currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" ||
+                currentUser.email?.startsWith("dsp_rks_ips_2026");
+
+              const fallbackProfile: OfficerProfile = {
+                uid: currentUser.uid,
+                email: currentUser.email || "",
+                name: isLegacyAdmin
+                  ? "DSP R. K. Shastry, IPS"
+                  : (currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer"),
+                rank: isLegacyAdmin ? "Superintendent of Police" : "Investigating Officer",
+                // IMPORTANT: fallback role must be a valid Sidebar role string
+                // "Investigation Dashboard" = safest minimum privilege
+                role: isLegacyAdmin ? "Administrative Dashboard - Level 2" : "Investigation Dashboard",
+                district: "Bengaluru Urban",
+                clearanceLevel: isLegacyAdmin ? "ISD-LEVEL-I" : "ISD-LEVEL-IV",
+                lastLogin: new Date().toISOString(),
+                active: true,
+              };
+              setOfficerProfile(fallbackProfile);
+            }
+          } catch (error) {
+            if (attempt < 2) {
+              // Retry once after 1 second if first attempt fails (e.g., cold start)
+              console.warn(`[AuthContext] Firestore fetch attempt ${attempt} failed, retrying...`, error);
+              await new Promise(r => setTimeout(r, 1000));
+              return attemptFetch(attempt + 1);
+            }
+            // After 2 failed attempts, fall back to safe minimum profile
+            console.error("[AuthContext] Firestore fetch failed after retries:", error);
+            const isLegacyAdmin =
+              currentUser.email === "dsp_rks_ips_2026@orca.gov" ||
+              currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" ||
+              currentUser.email?.startsWith("dsp_rks_ips_2026");
+
+            setOfficerProfile({
+              uid: currentUser.uid,
+              email: currentUser.email || "",
+              name: currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer",
+              rank: "Investigating Officer",
+              role: isLegacyAdmin ? "Administrative Dashboard - Level 2" : "Investigation Dashboard",
+              district: "Bengaluru Urban",
+              clearanceLevel: "ISD-LEVEL-IV",
+              lastLogin: new Date().toISOString(),
+              active: true,
+            });
+          }
+        };
+
+        await attemptFetch(1);
+      } else {
+        setOfficerProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
 const login = async (badgeId: string, pin: string) => {
   setLoading(true);
