@@ -82,6 +82,78 @@ export const mapBadgeToEmail = (badgeId: string) => {
   return `${cleanBadge}@karnatakapolice.gov.in`;
 };
 
+// ─── OFFICER EMAIL → PROFILE MAP ─────────────────────────────────────────────
+// Used as fallback when Firestore is unreachable after retries.
+// Keep this in sync with the Firestore documents provisioned via provision_users.py
+// Roles MUST exactly match the strings checked in Sidebar.tsx hasAccess()
+const OFFICER_EMAIL_MAP: Record<string, Partial<OfficerProfile>> = {
+  "samith@orca.gov.in": {
+    name: "Samith M",
+    rank: "Inspector",
+    role: "Investigation Dashboard",
+    clearanceLevel: "ISD-LEVEL-IV",
+  },
+  "rajeshk@orca.gov.in": {
+    name: "Rajesh Kumar",
+    rank: "Deputy Superintendent of Police",
+    role: "Investigation Dashboard",
+    clearanceLevel: "ISD-LEVEL-II",
+  },
+  "sushmahq@orca.gov.in": {
+    name: "Sushma C",
+    rank: "Inspector HQ",
+    role: "Administrative Dashboard - Level 1",
+    clearanceLevel: "ISD-LEVEL-III",
+  },
+  "varadhq@orca.gov.in": {
+    name: "Varad B",
+    rank: "Superintendent of Police HQ",
+    role: "Administrative Dashboard - Level 2",
+    clearanceLevel: "ISD-LEVEL-I",
+  },
+  "venugopalhq@orca.gov.in": {
+    name: "Venugopal Rao",
+    rank: "Deputy Inspector General of Police HQ",
+    role: "Administrative Dashboard - Level 2",
+    clearanceLevel: "ISD-LEVEL-I",
+  },
+  "yashasviscrb@orca.gov.in": {
+    name: "Yashasvi",
+    rank: "SCRB Administrator",
+    role: "IT Administration Dashboard",
+    clearanceLevel: "ISD-LEVEL-III",
+  },
+  // Legacy hardcoded admin
+  "dsp_rks_ips_2026@orca.gov": {
+    name: "DSP R. K. Shastry, IPS",
+    rank: "Superintendent of Police",
+    role: "Administrative Dashboard - Level 2",
+    clearanceLevel: "ISD-LEVEL-I",
+  },
+  "dsp_rks_ips_2026@karnatakapolice.gov.in": {
+    name: "DSP R. K. Shastry, IPS",
+    rank: "Superintendent of Police",
+    role: "Administrative Dashboard - Level 2",
+    clearanceLevel: "ISD-LEVEL-I",
+  },
+};
+
+const buildFallbackProfile = (uid: string, email: string): OfficerProfile => {
+  const known = OFFICER_EMAIL_MAP[email.toLowerCase()];
+  return {
+    uid,
+    email,
+    name: known?.name ?? (email.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer"),
+    rank: known?.rank ?? "Investigating Officer",
+    role: known?.role ?? "Investigation Dashboard", // safe minimum privilege
+    district: "Bengaluru Urban",
+    clearanceLevel: known?.clearanceLevel ?? "ISD-LEVEL-IV",
+    lastLogin: new Date().toISOString(),
+    active: true,
+  };
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [officerProfile, setOfficerProfile] = useState<OfficerProfile | null>(null);
@@ -119,31 +191,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (docSnap.exists()) {
               const profile = docSnap.data() as OfficerProfile;
               setOfficerProfile(profile);
-            } else {
-              // No Firestore doc exists for this UID — use safe minimal fallback
-              // Only the legacy hardcoded admin email gets elevated access
-              const isLegacyAdmin =
-                currentUser.email === "dsp_rks_ips_2026@orca.gov" ||
-                currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" ||
-                currentUser.email?.startsWith("dsp_rks_ips_2026");
-
-              const fallbackProfile: OfficerProfile = {
-                uid: currentUser.uid,
-                email: currentUser.email || "",
-                name: isLegacyAdmin
-                  ? "DSP R. K. Shastry, IPS"
-                  : (currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer"),
-                rank: isLegacyAdmin ? "Superintendent of Police" : "Investigating Officer",
-                // IMPORTANT: fallback role must be a valid Sidebar role string
-                // "Investigation Dashboard" = safest minimum privilege
-                role: isLegacyAdmin ? "Administrative Dashboard - Level 2" : "Investigation Dashboard",
-                district: "Bengaluru Urban",
-                clearanceLevel: isLegacyAdmin ? "ISD-LEVEL-I" : "ISD-LEVEL-IV",
-                lastLogin: new Date().toISOString(),
-                active: true,
-              };
+              // No Firestore doc for this UID.
+              // Use the known officer email map so every provisioned user
+              // gets the correct role even if Firestore is unreachable.
+              const fallbackProfile = buildFallbackProfile(currentUser.uid, currentUser.email || "");
               setOfficerProfile(fallbackProfile);
-            }
           } catch (error) {
             if (attempt < 2) {
               // Retry once after 1 second if first attempt fails (e.g., cold start)
@@ -151,24 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await new Promise(r => setTimeout(r, 1000));
               return attemptFetch(attempt + 1);
             }
-            // After 2 failed attempts, fall back to safe minimum profile
+            // After 2 failed attempts, fall back using the known email map
             console.error("[AuthContext] Firestore fetch failed after retries:", error);
-            const isLegacyAdmin =
-              currentUser.email === "dsp_rks_ips_2026@orca.gov" ||
-              currentUser.email === "dsp_rks_ips_2026@karnatakapolice.gov.in" ||
-              currentUser.email?.startsWith("dsp_rks_ips_2026");
-
-            setOfficerProfile({
-              uid: currentUser.uid,
-              email: currentUser.email || "",
-              name: currentUser.email?.split("@")[0].toUpperCase().replace(/_/g, " ") || "Officer",
-              rank: "Investigating Officer",
-              role: isLegacyAdmin ? "Administrative Dashboard - Level 2" : "Investigation Dashboard",
-              district: "Bengaluru Urban",
-              clearanceLevel: "ISD-LEVEL-IV",
-              lastLogin: new Date().toISOString(),
-              active: true,
-            });
+            setOfficerProfile(buildFallbackProfile(currentUser.uid, currentUser.email || ""));
           }
         };
 
