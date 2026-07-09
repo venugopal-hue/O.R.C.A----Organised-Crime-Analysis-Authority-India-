@@ -307,10 +307,47 @@ const MainContent: React.FC = () => {
 
   const [expandedBulletinId, setExpandedBulletinId] = useState<string | null>(null);
 
-  const hasAccess = (tabId: string) => {
+  // ─── ROLE-BASED ACCESS CONTROL ───────────────────────────────────────────
+  // Must match EXACTLY the same logic as Sidebar.tsx hasAccess()
+  // so that sidebar visibility and content rendering stay in sync.
+  const hasAccess = (tabId: string): boolean => {
     if (!officerProfile) return false;
-    return true;
+
+    let role = officerProfile.role || "Investigation Dashboard";
+    // Normalise legacy/fallback role strings
+    if (role === "CYBER_CELL" || role === "Investigation Officer") role = "Investigation Dashboard";
+    if (role === "ADMIN") role = "Administrative Dashboard - Level 2";
+
+    // Everyone gets basic tabs
+    if (tabId === "dashboard" || tabId === "settings") return true;
+
+    if (role === "Administrative Dashboard - Level 2") return true; // full access
+
+    if (role === "Investigation Dashboard") {
+      const allowed = ["dashboard", "chatbot", "analytics", "fir", "networks", "verification-document", "settings"];
+      return allowed.includes(tabId);
+    }
+
+    if (role === "Administrative Dashboard - Level 1") {
+      const allowed = [
+        "dashboard", "verification-document", "settings",
+        "admin-dashboard", "admin-applications", "admin-verification", "admin-directory"
+      ];
+      return allowed.includes(tabId);
+    }
+
+    if (role === "IT Administration Dashboard") {
+      const allowed = [
+        "dashboard", "settings",
+        "admin-dashboard", "admin-directory", "admin-audit",
+        "admin-security", "admin-reports", "admin-settings"
+      ];
+      return allowed.includes(tabId);
+    }
+
+    return false; // deny unknown roles by default
   };
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (officerProfile && !hasAccess(activeTab)) {
@@ -2166,7 +2203,7 @@ const MainContent: React.FC = () => {
               </div>
             )}
 
-            {activeTab.startsWith("admin-") && (
+            {activeTab.startsWith("admin-") && hasAccess(activeTab) && (
               <CommandAdminCenter adminTab={activeTab} />
             )}
 

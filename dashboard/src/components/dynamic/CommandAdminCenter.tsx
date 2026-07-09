@@ -185,6 +185,35 @@ export const CommandAdminCenter: React.FC<CommandAdminCenterProps> = ({ adminTab
   const { officerProfile } = useAuth();
   const { activeFirId } = useIntelligence();
 
+  // ─── HARD ROLE GUARD ─────────────────────────────────────────────────────
+  // Defence-in-depth: even if page.tsx somehow renders this component for an
+  // unauthorised user, they see a permission-denied screen — not admin data.
+  const ADMIN_ROLES = [
+    "Administrative Dashboard - Level 1",
+    "Administrative Dashboard - Level 2",
+    "IT Administration Dashboard",
+  ];
+  const userRole = officerProfile?.role || "";
+  const isAuthorised = ADMIN_ROLES.includes(userRole);
+
+  if (!isAuthorised) {
+    return (
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", height: "100%", gap: 16,
+        color: "#64748b", fontFamily: "JetBrains Mono, monospace"
+      }}>
+        <span style={{ fontSize: 48 }}>🔒</span>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#1e293b" }}>Access Denied</div>
+        <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", maxWidth: 320 }}>
+          You do not have the required clearance to access the Administration Panel.<br />
+          Role: <strong>{userRole || "UNKNOWN"}</strong>
+        </div>
+      </div>
+    );
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Firestore retrieved state arrays
   const [applications, setApplications] = useState<OfficerApplication[]>([]);
   const [officers, setOfficers] = useState<any[]>([]);
