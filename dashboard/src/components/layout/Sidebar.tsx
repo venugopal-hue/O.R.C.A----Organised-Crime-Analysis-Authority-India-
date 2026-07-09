@@ -161,7 +161,8 @@ export const Sidebar: React.FC = () => {
       return allowed.includes(itemId);
     }
     
-    return true;
+    // DENY by default — unknown/fallback roles get NO extra access
+    return false;
   };
 
   const allowedMenuItems = menuItems.filter(item => hasAccess(item.id));
@@ -565,69 +566,71 @@ export const Sidebar: React.FC = () => {
               </nav>
             </div>
 
-            {/* VERIFICATION SERVICES section */}
-            <div style={{ marginTop: 16 }}>
-              <div style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "rgba(255,255,255,0.4)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                padding: "0 24px",
-                marginBottom: 8,
-                fontFamily: "JetBrains Mono, monospace"
-              }}>
-                Verification Services
+            {/* VERIFICATION SERVICES section — only renders if user has access to at least one item */}
+            {allowedVerificationItems.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.4)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  padding: "0 24px",
+                  marginBottom: 8,
+                  fontFamily: "JetBrains Mono, monospace"
+                }}>
+                  Verification Services
+                </div>
+                <nav style={{ display: "flex", flexDirection: "column" }}>
+                  {allowedVerificationItems.map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <a
+                        id={`nav-${item.id}`}
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          if (pathname !== item.route && item.route !== "/dashboard") {
+                            router.push(item.route);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          color: isActive ? "white" : "rgba(255,255,255,0.7)",
+                          textDecoration: "none",
+                          padding: "10px 24px",
+                          fontSize: "13.5px",
+                          fontWeight: isActive ? 600 : 500,
+                          cursor: "pointer",
+                          borderLeft: isActive ? "3px solid #FF9933" : "3px solid transparent",
+                          background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
+                          transition: "0.2s",
+                          userSelect: "none"
+                        }}
+                        onMouseEnter={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                            (e.currentTarget as HTMLElement).style.color = "white";
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)";
+                          }
+                        }}
+                      >
+                        <Icon style={{ width: 16, height: 16, opacity: isActive ? 1 : 0.7, color: isActive ? "#FF9933" : "currentColor", flexShrink: 0 }} />
+                        <span>{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </nav>
               </div>
-              <nav style={{ display: "flex", flexDirection: "column" }}>
-                {allowedVerificationItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <a
-                      id={`nav-${item.id}`}
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        if (pathname !== item.route && item.route !== "/dashboard") {
-                          router.push(item.route);
-                        }
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        color: isActive ? "white" : "rgba(255,255,255,0.7)",
-                        textDecoration: "none",
-                        padding: "10px 24px",
-                        fontSize: "13.5px",
-                        fontWeight: isActive ? 600 : 500,
-                        cursor: "pointer",
-                        borderLeft: isActive ? "3px solid #FF9933" : "3px solid transparent",
-                        background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
-                        transition: "0.2s",
-                        userSelect: "none"
-                      }}
-                      onMouseEnter={e => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                          (e.currentTarget as HTMLElement).style.color = "white";
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.background = "transparent";
-                          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)";
-                        }
-                      }}
-                    >
-                      <Icon style={{ width: 16, height: 16, opacity: isActive ? 1 : 0.7, color: isActive ? "#FF9933" : "currentColor", flexShrink: 0 }} />
-                      <span>{item.label}</span>
-                    </a>
-                  );
-                })}
-              </nav>
-            </div>
+            )}
 
             {/* USER PANEL section */}
             <div style={{ marginTop: 16 }}>
@@ -693,69 +696,71 @@ export const Sidebar: React.FC = () => {
               </nav>
             </div>
 
-            {/* ADMINISTRATION section */}
-            <div style={{ marginTop: 16 }}>
-              <div style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "rgba(255,255,255,0.4)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                padding: "0 24px",
-                marginBottom: 8,
-                fontFamily: "JetBrains Mono, monospace"
-              }}>
-                Administration
+            {/* ADMINISTRATION section — only renders if user has access to at least one admin item */}
+            {allowedAdminItems.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.4)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  padding: "0 24px",
+                  marginBottom: 8,
+                  fontFamily: "JetBrains Mono, monospace"
+                }}>
+                  Administration
+                </div>
+                <nav style={{ display: "flex", flexDirection: "column" }}>
+                  {allowedAdminItems.map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <a
+                        id={`nav-${item.id}`}
+                        key={item.id}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          if (pathname !== item.route) {
+                            router.push(item.route);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          color: isActive ? "white" : "rgba(255,255,255,0.7)",
+                          textDecoration: "none",
+                          padding: "10px 24px",
+                          fontSize: "13.5px",
+                          fontWeight: isActive ? 600 : 500,
+                          cursor: "pointer",
+                          borderLeft: isActive ? "3px solid #FF9933" : "3px solid transparent",
+                          background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
+                          transition: "0.2s",
+                          userSelect: "none"
+                        }}
+                        onMouseEnter={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                            (e.currentTarget as HTMLElement).style.color = "white";
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)";
+                          }
+                        }}
+                      >
+                        <Icon style={{ width: 16, height: 16, opacity: isActive ? 1 : 0.7, color: isActive ? "#FF9933" : "currentColor", flexShrink: 0 }} />
+                        <span>{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </nav>
               </div>
-              <nav style={{ display: "flex", flexDirection: "column" }}>
-                {allowedAdminItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <a
-                      id={`nav-${item.id}`}
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        if (pathname !== item.route) {
-                          router.push(item.route);
-                        }
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        color: isActive ? "white" : "rgba(255,255,255,0.7)",
-                        textDecoration: "none",
-                        padding: "10px 24px",
-                        fontSize: "13.5px",
-                        fontWeight: isActive ? 600 : 500,
-                        cursor: "pointer",
-                        borderLeft: isActive ? "3px solid #FF9933" : "3px solid transparent",
-                        background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
-                        transition: "0.2s",
-                        userSelect: "none"
-                      }}
-                      onMouseEnter={e => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                          (e.currentTarget as HTMLElement).style.color = "white";
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.background = "transparent";
-                          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)";
-                        }
-                      }}
-                    >
-                      <Icon style={{ width: 16, height: 16, opacity: isActive ? 1 : 0.7, color: isActive ? "#FF9933" : "currentColor", flexShrink: 0 }} />
-                      <span>{item.label}</span>
-                    </a>
-                  );
-                })}
-              </nav>
-            </div>
+            )}
           </>
         )}
       </div>
